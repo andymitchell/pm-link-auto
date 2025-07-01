@@ -39,22 +39,32 @@ export function detectPackageManager(): PackageManager {
 }
 
 /** Gets the appropriate link commands for the detected package manager. */
+/**
+ * Returns the set of commands for linking and unlinking packages based on the package manager.
+ * - globalLink: Registers a package from its source directory for global linking.
+ * - globalUnlink: Removes the global registration of a package.
+ * - localLink: Links globally-registered packages into the current project's node_modules.
+ */
 export function getLinkCommands(pm: PackageManager) {
     switch (pm) {
         case 'pnpm':
             return {
                 globalLink: 'pnpm link --global',
+                globalUnlink: (name: string) => `pnpm unlink --global ${name}`,
                 localLink: (pkgs: string[]) => `pnpm link --global ${pkgs.join(' ')}`,
             };
         case 'yarn':
+            // Note: Yarn v1 'link' behavior.
             return {
                 globalLink: 'yarn link',
+                globalUnlink: (name: string) => `yarn unlink ${name}`,
                 localLink: (pkgs: string[]) => `yarn link ${pkgs.join(' ')}`,
             };
         case 'npm':
         default:
             return {
                 globalLink: 'npm link',
+                globalUnlink: (name: string) => `npm unlink --global ${name}`,
                 localLink: (pkgs: string[]) => `npm link ${pkgs.join(' ')}`,
             };
     }

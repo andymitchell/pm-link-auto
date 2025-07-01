@@ -6,6 +6,7 @@ import { glob } from 'glob';
 import { getPackageNameFromPath, runCommand, getLinkCommands } from './utils.ts';
 import { MODULE_NAME, updateConfigFile } from './config.ts';
 import type { LinkerConfig, PackageEntry, ValidatedPackageEntry, PackageManager } from './types.ts';
+import { getNpmLinkList } from './getNpmLinkList.ts';
 
 /** Searches for a package by name within a root directory. */
 async function findPackagesInSearchRoot(packageNames: string[], searchRoot: string): Promise<Record<string, string>> {
@@ -45,33 +46,45 @@ async function findPackagesInSearchRoot(packageNames: string[], searchRoot: stri
     return nameToPathMap;
 }
 
-/** Lists all globally linked packages for a given package manager. */
-async function getGlobalLinkedPackages(pm: PackageManager): Promise<Set<string>> {
-    try {
-        const listCommand = pm === 'pnpm' ? 'pnpm list -g --depth=0 --json' : 'npm list -g --depth=0 --link=true';
-        const { stdout } = await runCommand(listCommand);
-        const packages = new Set<string>();
 
+/**
+ * Lists all globally linked packages and their source paths for a given package manager.
+ * @returns A Map of package names to their fully resolved, absolute linked file system paths.
+ */
+async function getGlobalLinkedPackages(pm: PackageManager): Promise<Map<string, string>> {
+    let linkedPackages = new Map<string, string>();
+    try {
         if (pm === 'pnpm') {
+            // pnpm's --long --json output is already absolute and correct. No changes needed here.
+            const listCommand = 'pnpm list -g --depth=0 --long --json';
+            const { stdout } = await runCommand(listCommand);
+
+            if (!stdout.trim()) {
+                return linkedPackages;
+            }
+
             const pnpmList = JSON.parse(stdout);
-            Object.keys(pnpmList?.dependencies || {}).forEach(name => packages.add(name));
-        } else {
-            const lines = stdout.split('\n');
-            for (const line of lines) {
-                if (line.includes('->')) {
-                    const nameMatch = line.match(/(@[a-z0-9-~][a-z0-9-._~]*\/[a-z0-9-~][a-z0-9-._~]*|[a-z0-9-~][a-z0-9-._~]*)/);
-                    if (nameMatch) {
-                        packages.add(nameMatch[0]);
+            if (Array.isArray(pnpmList)) {
+                for (const pkg of pnpmList) {
+                    if (pkg.name && pkg.path) {
+                        linkedPackages.set(pkg.name, pkg.path);
                     }
                 }
             }
+        } else { // Handles npm and yarn
+            linkedPackages = await getNpmLinkList(pm);
+            
         }
-        return packages;
+        return linkedPackages;
     } catch (e) {
         console.warn(chalk.yellow('Could not list global packages. Will attempt to link all anyway.'));
-        return new Set();
+        if (e instanceof Error) {
+            console.warn(chalk.dim(`  Reason: ${e.message}`));
+        }
+        return new Map();
     }
 }
+
 
 export async function runLinker(config: LinkerConfig, configPath: string, pm: PackageManager) {
     const { packages: packagesToLink, packageSearchRoot } = config;
@@ -81,8 +94,8 @@ export async function runLinker(config: LinkerConfig, configPath: string, pm: Pa
         return;
     }
 
+    // NOTE: This part of the script is unchanged.
     const searchRoot = (packageSearchRoot || '~/').replace('~', os.homedir());
-    const linkCommands = getLinkCommands(pm);
 
     // 1. Validate paths and identify entries needing discovery
     console.log(chalk.bold.underline('\nValidating package paths...'));
@@ -118,8 +131,6 @@ export async function runLinker(config: LinkerConfig, configPath: string, pm: Pa
         });
 
         if (shouldDiscover) {
-            // Use Promise.all for potential parallel searches, or keep the serial for...of loop for clearer logs.
-            // The serial loop is fine here.
             const startTime = Date.now();
             const foundPaths = await findPackagesInSearchRoot(invalidEntries.map(x => x.name), searchRoot);
             const duration = (Date.now() - startTime) / 1000;
@@ -129,7 +140,6 @@ export async function runLinker(config: LinkerConfig, configPath: string, pm: Pa
             for( const name in foundPaths ) {
                 const foundPath = foundPaths[name]!;
                 await updateConfigFile(configPath, name, foundPath);
-                // Add the newly found package to our list of resolved packages
                 resolvedEntries.push({ name, path: foundPath });
             }
 
@@ -139,7 +149,6 @@ export async function runLinker(config: LinkerConfig, configPath: string, pm: Pa
         }
     }
 
-    // Now, use the complete list of resolved entries for the next steps
     if (resolvedEntries.length === 0) {
         console.log(chalk.yellow('\nNo valid packages to link. Exiting.'));
         return;
@@ -147,16 +156,53 @@ export async function runLinker(config: LinkerConfig, configPath: string, pm: Pa
 
     // 3. Register global links
     console.log(chalk.bold.underline(`\nStep 1: Registering packages with ${pm}...`));
+    // NOTE: Assumes `getLinkCommands` now also returns a `globalUnlink` function, e.g.,
+    // globalUnlink: (name: string) => `${pm} unlink -g ${name}`
+    const linkCommands = getLinkCommands(pm);
     const globallyLinked = await getGlobalLinkedPackages(pm);
+
     for (const entry of resolvedEntries) {
-        if (globallyLinked.has(entry.name)) {
-            console.log(chalk.blue(`  - '${entry.name}' is already linked globally.`));
-        } else {
+        const existingPath = globallyLinked.get(entry.name);
+        const intendedPath = entry.path;
+
+        if (!existingPath) {
+            // Case 1: Package is not linked at all.
             try {
                 console.log(chalk.cyan(`  + Linking '${entry.name}' globally...`));
-                await runCommand(linkCommands.globalLink, entry.path);
+                await runCommand(linkCommands.globalLink, intendedPath);
             } catch (error) {
                 console.error(chalk.red(`Failed to globally link ${entry.name}:`), error);
+            }
+        } else if (path.resolve(existingPath) === path.resolve(intendedPath)) {
+            // Case 2: Package is already linked to the correct path.
+            console.log(chalk.blue(`  - '${entry.name}' is already linked correctly.`));
+        } else {
+            // Case 3: Conflict. Package is linked from a different path.
+            console.log(chalk.yellow(`  ! Conflict for '${entry.name}':`));
+            console.log(chalk.yellow(`    - Currently linked from: ${existingPath}`));
+            console.log(chalk.yellow(`    - You want to link from: ${intendedPath}`));
+
+            const { shouldRelink } = await prompts({
+                type: 'confirm',
+                name: 'shouldRelink',
+                message: `Do you want to unlink the existing version and relink from the correct path?`,
+                initial: true,
+            });
+
+            if (shouldRelink) {
+                try {
+                    console.log(`  - Unlinking existing '${entry.name}'...`);
+                    await runCommand(linkCommands.globalUnlink(entry.name));
+
+                    console.log(`  + Linking new version of '${entry.name}'...`);
+                    await runCommand(linkCommands.globalLink, intendedPath);
+
+                    console.log(chalk.green(`  ✓ Successfully relinked '${entry.name}'.`));
+                } catch (error) {
+                    console.error(chalk.red(`Failed to relink ${entry.name}:`), error);
+                }
+            } else {
+                console.log(chalk.dim(`  Skipping link for '${entry.name}'. It remains linked from the old path.`));
             }
         }
     }

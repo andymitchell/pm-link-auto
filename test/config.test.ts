@@ -56,7 +56,7 @@ describe('updateConfigFile (Live File System)', () => {
     });
 
 
-    it.only('should handle a split const and default', async () => {
+    it('should handle a split const and default', async () => {
         // --- Arrange ---
         const packageName = 'my-lib';
         const newPath = '../../libs/my-lib';

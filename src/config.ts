@@ -46,7 +46,7 @@ export async function updateConfigFile(filepath: string, packageName: string, ne
         const relativePath = newPath;//path.relative(path.dirname(filepath), newPath).replace(/\\/g, '/');
         const content = await fs.readFile(filepath, 'utf-8');
 
-        console.log({content})
+        
         // Parse the code into an AST, preserving its structure.
         // We use the babel/parser because it handles TS syntax out of the box.
         const ast = recast.parse(content, {
@@ -65,7 +65,7 @@ export async function updateConfigFile(filepath: string, packageName: string, ne
             // We are interested in object literals: { ... }
             visitObjectExpression(nodePath) {
                 // Check if this object has a `name` property matching our package.
-                console.log(nodePath.node.properties)
+                
                 const nameProperty = nodePath.node.properties.find(
                     (p): p is recast.types.namedTypes.Property =>
                         p.type === 'ObjectProperty' &&

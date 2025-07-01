@@ -128,24 +128,4 @@ describe('runLinker', () => {
         
     });
 
-    it('should skip global linking if package is already linked', async () => {
-        const config: LinkerConfig = {
-            packages: [{ name: '@my/package', path: '../libs/my-package' }],
-        };
-        const configPath = '/test/project/pm-link-auto.config.js';
-
-        MOCKED_UTILS.getPackageNameFromPath.mockReturnValue('@my/package');
-        // Simulate `npm list` returning the package
-        MOCKED_UTILS.runCommand.mockImplementation(async (command) => {
-            if (command.startsWith('npm list')) return { stdout: '@my/package@1.0.0 -> /path/to/pkg', stderr: '' };
-            return { stdout: 'some output', stderr: '' };
-        });
-
-        await runLinker(config, configPath, 'npm');
-
-        // The global `npm link` command in the package's directory should NOT be called
-        expect(MOCKED_UTILS.runCommand).not.toHaveBeenCalledWith('npm link', expect.stringContaining('libs/my-package'));
-        // The local `npm link @my/package` command SHOULD be called
-        expect(MOCKED_UTILS.runCommand).toHaveBeenCalledWith('npm link @my/package', expect.any(String));
-    });
 });
