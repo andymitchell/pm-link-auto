@@ -1,6 +1,6 @@
 {
     "name": "@andyrmitchell/pm-link-auto",
-    "version": "0.0.1",
+    "version": "0.1.0",
     "description": "Automatically finds, configures, and links local package dependencies for a seamless development workflow.",
     "type": "module",
     "sideEffects": false,
