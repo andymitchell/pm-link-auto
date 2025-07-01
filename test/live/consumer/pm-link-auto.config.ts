@@ -12,7 +12,15 @@ const config: LinkerConfig = {
             // Optional: The tool will try to discover the path if you omit it.
             // Path is relative to this config file.
             path: '/Users/andymitchell/git/breef/pm-link-auto/test/live/unpublished-lib',
-        }
+        }, 
+        {
+          name: "@andyrmitchell/store",
+          path: '/Users/andymitchell/git/breef/store'
+        },
+        {
+          name: "@andyrmitchell/objects",
+          path: '/Users/andymitchell/git/breef/objects'
+        },
     ],
 };
 

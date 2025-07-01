@@ -94,7 +94,6 @@ export async function runLinker(config: LinkerConfig, configPath: string, pm: Pa
         return;
     }
 
-    // NOTE: This part of the script is unchanged.
     const searchRoot = (packageSearchRoot || '~/').replace('~', os.homedir());
 
     // 1. Validate paths and identify entries needing discovery
