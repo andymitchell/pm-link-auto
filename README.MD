@@ -1,12 +1,6 @@
-Of course! Using TypeScript for the configuration file is a great idea, as it provides excellent autocompletion and type-checking for the user. `cosmiconfig` is designed to handle this seamlessly.
 
-Here is the updated `README.md` with the example changed to TypeScript by default.
+# @andyrmitchell/pm-link-auto
 
----
-
-# Local Deps Linker
-
-[![npm version](https://badge.fury.io/js/pm-link-auto.svg)](https://badge.fury.io/js/pm-link-auto)
 
 Tired of manually running `npm link` for local packages every time you switch branches or a new developer joins the team? `pm-link-auto` automates the entire process.
 
@@ -14,7 +8,9 @@ It reads a simple config file in your project, validates the paths to your local
 
 ## The Problem
 
-1.  **Onboarding Hell:** A new developer clones a project that depends on several other local packages. They have to manually clone each dependency, find its path, and run `npm link`... over and over.
+Early in a project, it may be depending on libraries that are also not ready to publish yet. This leaves it to the developer to maintain `npm link` to local files on the machine. 
+
+1.  **Onboarding Pain:** When adding a new developer or switching branches, and it has to use local packages, you can end up with incorrect linking.
 2.  **Fragile Links:** Running `npm install` can sometimes break existing links, forcing you to re-link them.
 3.  **No Single Source of Truth:** It's not obvious which local packages a project depends on. The information is scattered across developers' machines.
 
@@ -33,7 +29,7 @@ It reads a simple config file in your project, validates the paths to your local
 Install the tool as a development dependency in your project.
 
 ```bash
-npm install -D pm-link-auto
+npm install -D @andyrmitchell/pm-link-auto
 ```
 
 ## Usage
@@ -42,6 +38,7 @@ npm install -D pm-link-auto
 
     ```typescript
     // pm-link-auto.config.ts
+
     import type { LinkerConfig } from '@andyrmitchell/pm-link-auto';
 
     const config: LinkerConfig = {
@@ -66,7 +63,7 @@ npm install -D pm-link-auto
 
     export default config;
     ```
-    *(Note: You can also use a `.js` or `.json` file if you prefer.)*
+    *(Note: You can also use a `.js` file if you prefer.)*
 
 2.  **Run the linker:**
 
