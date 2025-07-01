@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
 import chalk from 'chalk';
-import { loadConfig } from './config.js';
-import { runLinker } from './linker.js';
-import { detectPackageManager } from './utils.js';
+import { loadConfig } from './config.ts';
+import { runLinker } from './linker.ts';
+import { detectPackageManager } from './utils.ts';
 
 async function main() {
   const loadedConfig = await loadConfig();

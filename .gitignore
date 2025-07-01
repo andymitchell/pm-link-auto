@@ -3,4 +3,4 @@
 .DS_Store
 node_modules/
 dist/
-test/live/consumer/pm-link-auto.config.ts
+/test/live/consumer/pm-link-auto.config.ts
