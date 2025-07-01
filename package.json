@@ -1,0 +1,54 @@
+{
+    "name": "@andyrmitchell/pm-link-auto",
+    "version": "0.0.1",
+    "description": "Automatically finds, configures, and links local package dependencies for a seamless development workflow.",
+    "type": "module",
+    "sideEffects": false,
+    "bin": {
+        "pm-link-auto": "dist/cli.js"
+    },
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "default": "./dist/index.ts"
+        }
+    },
+    "files": [
+        "dist",
+        "README.MD",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build_release": "npm run build_prepare && np",
+        "build": "tsup",
+        "pkglint": "./build/publint_pipeable.sh",
+        "build_prepare": "npm run build && npm run pkglint",
+        "prepublishOnly": "npm run build_prepare",
+        "test": "vitest",
+        "test:watch": "vitest --watch"
+    },
+    "author": "Andy Mitchell <your-email>",
+    "license": "MIT",
+    "dependencies": {
+        "@babel/parser": "^7.27.7",
+        "chalk": "^5.3.0",
+        "cosmiconfig": "^9.0.0",
+        "glob": "^10.4.1",
+        "prompts": "^2.4.2",
+        "recast": "^0.23.11"
+    },
+    "devDependencies": {
+        "@types/jest": "^29.5.14",
+        "@types/node": "^20.12.12",
+        "@types/prompts": "^2.4.9",
+        "tsup": "^8.3.5",
+        "typescript": "^5.8.2",
+        "vitest": "^3.0.7"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    },
+    "publishConfig": {
+        "access": "public"
+    }
+}
