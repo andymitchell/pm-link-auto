@@ -7,6 +7,7 @@ import { getPackageNameFromPath, runCommand, getLinkCommands } from './utils.ts'
 import { MODULE_NAME, updateConfigFile } from './config.ts';
 import type { LinkerConfig, PackageEntry, ValidatedPackageEntry, PackageManager } from './types.ts';
 import { getNpmLinkList } from './getNpmLinkList.ts';
+import { isPatternInPostinstall } from './isPatternInPostInstall.ts';
 
 /** Searches for a package by name within a root directory. */
 async function findPackagesInSearchRoot(packageNames: string[], searchRoot: string): Promise<Record<string, string>> {
@@ -23,19 +24,19 @@ async function findPackagesInSearchRoot(packageNames: string[], searchRoot: stri
 
     console.log(chalk.dim(`  Search complete. Found ${packageJsonFiles.length} package.json files in ${duration.toFixed(2)}s. Now checking names...`));
 
-    const nameToPathMap:Record<string, string> = {};
+    const nameToPathMap: Record<string, string> = {};
 
     for (const file of packageJsonFiles) {
         const dir = path.dirname(file);
         const foundName = getPackageNameFromPath(dir);
-        if( foundName && packageNames.includes(foundName) ) {
+        if (foundName && packageNames.includes(foundName)) {
             nameToPathMap[foundName] = dir;
         }
     }
 
     const foundNames = new Set(Object.keys(nameToPathMap));
     const missingNames = packageNames.filter(x => !foundNames.has(x));
-    if( missingNames.length===0 ) {
+    if (missingNames.length === 0) {
         const prettyPackages = Object.keys(nameToPathMap).map((name) => `- ${name}: ${nameToPathMap[name]}`).join("\n");
         console.log(chalk.green(`  ✓ Found all packages:\n${prettyPackages}`));
     } else {
@@ -73,7 +74,7 @@ async function getGlobalLinkedPackages(pm: PackageManager): Promise<Map<string, 
             }
         } else { // Handles npm and yarn
             linkedPackages = await getNpmLinkList(pm);
-            
+
         }
         return linkedPackages;
     } catch (e) {
@@ -136,7 +137,7 @@ export async function runLinker(config: LinkerConfig, configPath: string, pm: Pa
 
             console.log(chalk.dim(`  Packages found in ${duration.toFixed(2)}s. Now updating config...`));
 
-            for( const name in foundPaths ) {
+            for (const name in foundPaths) {
                 const foundPath = foundPaths[name]!;
                 await updateConfigFile(configPath, name, foundPath);
                 resolvedEntries.push({ name, path: foundPath });
@@ -144,7 +145,7 @@ export async function runLinker(config: LinkerConfig, configPath: string, pm: Pa
 
             console.log(chalk.yellow(`\nAuto-discovery successful. Now please check the paths in ${MODULE_NAME}.config.(t|j)s and rerun. Exiting.`));
             return;
-            
+
         }
     }
 
@@ -215,6 +216,25 @@ export async function runLinker(config: LinkerConfig, configPath: string, pm: Pa
     } catch (error) {
         console.error(chalk.red(`Failed to link packages to this project:`), error);
     }
+
+    // Check for postinstall script and advise user if not found
+    const hasPostinstallScript = await isPatternInPostinstall('pm-link-auto');
+    if (!hasPostinstallScript) {
+        console.log(chalk.bold.yellow('\n💡 Tip: To stop npm package changes from dropping your local links...'));
+        console.log(
+            chalk.yellow(
+                `   Add the following 'postinstall' script to your project's package.json:`
+            )
+        );
+        console.log(
+            chalk.cyan(`
+  "scripts": {
+    "postinstall": "pm-link-auto"
+  }
+`)
+        );
+    }
+
 
     console.log(chalk.cyan.bold('\nAll done!'));
 }
