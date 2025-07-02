@@ -167,7 +167,7 @@ export async function runLinker(config: LinkerConfig, configPath: string, pm: Pa
         if (!existingPath) {
             // Case 1: Package is not linked at all.
             try {
-                console.log(chalk.cyan(`  + Linking '${entry.name}' globally...`));
+                console.log(chalk.cyan(`  + Linking '${entry.name}' globally on this machine...`));
                 await runCommand(linkCommands.globalLink, intendedPath);
             } catch (error) {
                 console.error(chalk.red(`Failed to globally link ${entry.name}:`), error);
