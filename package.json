@@ -20,7 +20,7 @@
     ],
     "scripts": {
         "build_release": "npm run build_prepare && np",
-        "build": "tsup",
+        "build": "tsup && cp -a 'public' 'dist/public'",
         "pkglint": "./build/publint_pipeable.sh",
         "build_prepare": "npm run build && npm run pkglint",
         "prepublishOnly": "npm run build_prepare",

@@ -7,8 +7,14 @@ import chalk from 'chalk';
 import * as recast from 'recast';
 import * as babelParser from '@babel/parser';
 import type { LinkerConfig, LoadedConfig } from './types.ts';
+import prompts from 'prompts';
+import { findUp } from 'find-up';
+import { getPublicAbsoluteDir } from './getPublicAbsoluteDir.ts';
+
 
 export const MODULE_NAME = 'pm-link-auto';
+const CONFIG_FILENAME = `${MODULE_NAME}.config.ts`;
+
 
 
 export async function loadConfig(): Promise<LoadedConfig | null> {
@@ -22,12 +28,11 @@ export async function loadConfig(): Promise<LoadedConfig | null> {
     const result = await explorer.search();
 
     if (!result) {
-        console.error(chalk.red(`Could not find a configuration file for ${MODULE_NAME}.`));
-        console.log(
-            chalk.yellow(`Please create a \`${MODULE_NAME}.config.ts\` (or .js) file in your project root. See documentation for details.`),
-        );
-        return null;
+        await promptAndCreateConfig();
+        return null; // Always return null so the CLI exits gracefully
+
     }
+
 
     console.log(chalk.blue(`✓ Using configuration file: ${path.relative(process.cwd(), result.filepath)}`));
     return {
@@ -36,6 +41,52 @@ export async function loadConfig(): Promise<LoadedConfig | null> {
     };
 }
 
+/**
+ * Prompts the user to create a new config file and does so if they agree.
+ * @returns {Promise<boolean>} - True if a file was created, false otherwise.
+ */
+async function promptAndCreateConfig(): Promise<boolean> {
+    console.log(chalk.yellow(`Could not find a configuration file for ${MODULE_NAME}.`));
+
+    const { shouldCreate } = await prompts({
+        type: 'confirm',
+        name: 'shouldCreate',
+        message: `Would you like to create a default \`${CONFIG_FILENAME}\` file in your project root?`,
+        initial: true,
+    });
+
+    if (!shouldCreate) {
+        console.log(chalk.cyan(`\nOkay. To use this tool, please create a \`${CONFIG_FILENAME}\` file manually in your project root.`));
+        return false;
+    }
+
+    const projectPackageJsonPath = await findUp('package.json');
+    if (!projectPackageJsonPath) {
+        console.error(chalk.red(`\nError: Could not find a 'package.json' file in this directory or any parent directories.`));
+        console.error(chalk.red(`Please run this command from within your project.`));
+        return false;
+    }
+
+    const projectRoot = path.dirname(projectPackageJsonPath);
+    const targetPath = path.join(projectRoot, CONFIG_FILENAME);
+
+    try {
+        const templatePath = path.resolve(getPublicAbsoluteDir('templates'), './pm-link-auto.config.ts.template');
+
+        const templateContent = await fs.readFile(templatePath, 'utf-8');
+        await fs.writeFile(targetPath, templateContent);
+
+        console.log(chalk.green(`\n✓ Successfully created \`${CONFIG_FILENAME}\` at:`));
+        console.log(chalk.dim(`  ${targetPath}`));
+        console.log(chalk.yellow(`\nPlease edit this file to configure your linked packages and then run the command again.`));
+        return true;
+
+    } catch (error) {
+        console.error(chalk.red.bold('\nFailed to create config file:'));
+        console.error(error);
+        return false;
+    }
+}
 
 /**
  * Updates a package's path in the given .ts or .js configuration file
@@ -46,7 +97,7 @@ export async function updateConfigFile(filepath: string, packageName: string, ne
         const relativePath = newPath;//path.relative(path.dirname(filepath), newPath).replace(/\\/g, '/');
         const content = await fs.readFile(filepath, 'utf-8');
 
-        
+
         // Parse the code into an AST, preserving its structure.
         // We use the babel/parser because it handles TS syntax out of the box.
         const ast = recast.parse(content, {
@@ -65,7 +116,7 @@ export async function updateConfigFile(filepath: string, packageName: string, ne
             // We are interested in object literals: { ... }
             visitObjectExpression(nodePath) {
                 // Check if this object has a `name` property matching our package.
-                
+
                 const nameProperty = nodePath.node.properties.find(
                     (p): p is recast.types.namedTypes.Property =>
                         p.type === 'ObjectProperty' &&
@@ -74,7 +125,7 @@ export async function updateConfigFile(filepath: string, packageName: string, ne
                         p.value.type === 'StringLiteral' &&
                         p.value.value === packageName
                 );
-                
+
 
                 if (!nameProperty) {
                     // This is not the package object we're looking for, continue traversing.
@@ -98,7 +149,7 @@ export async function updateConfigFile(filepath: string, packageName: string, ne
                     const nameIndex = nodePath.node.properties.indexOf(nameProperty);
                     nodePath.node.properties.splice(nameIndex + 1, 0, newPathProperty);
                 }
-                
+
                 updated = true;
                 // We're done, no need to visit children of this node.
                 return false;

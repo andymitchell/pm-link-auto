@@ -1,0 +1,34 @@
+/**
+ * Configuration for pm-link-auto.
+ *
+ * This tool helps you manage local `npm link` setups for monorepos or related projects.
+ * For more details, see the documentation.
+ */
+import type { LinkerConfig } from '@andyrmitchell/pm-link-auto'; 
+
+const config: LinkerConfig = {
+  /**
+   * Optional: The root directory to search for packages if a path is not provided below.
+   * Supports `~` for the home directory.
+   * @default "~/""
+   */
+  packageSearchRoot: '~/dev', // Example: '~/code', '~/git', etc.
+
+  /**
+   * A list of local packages you need to link to this project.
+   */
+  packages: [
+    // Example 1: With a specific path (relative to this config file)
+    // {
+    //   name: '@my-scope/my-shared-ui-library',
+    //   path: '../my-shared-ui-library',
+    // },
+    //
+    // Example 2: Without a path (will be auto-discovered in `packageSearchRoot`)
+    // {
+    //   name: '@my-scope/some-other-lib',
+    // },
+  ],
+};
+
+export default config;
