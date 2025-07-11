@@ -16,7 +16,8 @@
     "files": [
         "dist",
         "README.MD",
-        "LICENSE"
+        "LICENSE",
+        "public"
     ],
     "scripts": {
         "build_release": "npm run build_prepare && np",
