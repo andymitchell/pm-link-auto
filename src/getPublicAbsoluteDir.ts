@@ -17,8 +17,8 @@ import { fileURLToPath } from "url";
  * 
  * In both cases, it's one folder up (src/dist) to the root, and into templates. 
  * 
- * To copy templates: 
- * - In package.json's scripts, use {scripts: {build: "your-exisitng-build && cp -a 'public' 'dist/public'"}} 
+ * To make templates available: 
+ * - In package.json, include 'public' in the 'files' array 
  * 
  * @param dir 
  */
